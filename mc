@@ -26,6 +26,38 @@ CHECK_CLAUDE = os.path.join(AGENT_STACK, "health/check_claude_codex_sdk.py")
 CHECK_NVIDIA = os.path.join(AGENT_STACK, "health/check_nvidia_nemotron.py")
 
 
+def _short_err(e, limit=80):
+    """One-line error summary that never cuts a path or token mid-string.
+
+    An OSError with a filename is shown as "errno basename: reason" so a
+    missing-file error reads cleanly even for a long path. Anything else
+    falls back to the exception text; when it must be trimmed it is cut back
+    to the nearest path separator or word boundary so the tail is whole, not
+    a half-word. Always returns a single line (newlines become spaces).
+    """
+    text = str(e).replace("\n", " ").replace("\r", " ")
+    if isinstance(e, OSError):
+        fname = getattr(e, "filename", None)
+        reason = e.strerror or text
+        if fname:
+            text = f"{e.errno} {os.path.basename(str(fname))}: {reason}"
+        else:
+            text = f"{e.errno}: {reason}"
+    elif not text:
+        text = type(e).__name__
+    elif not text.startswith(type(e).__name__):
+        text = f"{type(e).__name__}: {text}"
+    if len(text) > limit:
+        cut = text[:limit]
+        for sep in ("/", ":", " ", "."):
+            at = cut.rfind(sep)
+            if at > limit // 2:
+                cut = cut[:at]
+                break
+        text = cut.rstrip(" ,:") + "..."
+    return text
+
+
 def section(title):
     print(f"\n== {title} ==")
 
@@ -75,7 +107,7 @@ def langsmith_status():
     except subprocess.TimeoutExpired:
         print("  TIMEOUT reaching LangSmith")
     except Exception as e:
-        print(f"  ERROR: {str(e)[:100]}")
+        print(f"  ERROR: {_short_err(e, 100)}")
 
 
 def tcp_open(host, port, timeout=2):
@@ -124,7 +156,7 @@ def runtime_status():
                 capture_output=True, text=True, timeout=60)
             print(f"  venv imports: {'ok' if 'stack-imports-ok' in r.stdout else 'BROKEN'}")
         except Exception as e:
-            print(f"  venv imports: ERROR {str(e)[:80]}")
+            print(f"  venv imports: ERROR {_short_err(e, 80)}")
 
 
 def code_factory_status():
@@ -160,7 +192,7 @@ def code_factory_status():
             verdict, smoke = "DEGRADED", " | hello-world: failed"
         print(f"  {verdict}: backends available: {', '.join(ok) or 'none'}{smoke}")
     except Exception as ex:
-        print(f"  DEGRADED: factory health check failed ({str(ex)[:80]})")
+        print(f"  DEGRADED: factory health check failed ({_short_err(ex, 80)})")
 
 
 def connectors_summary():
@@ -216,7 +248,7 @@ def connectors_summary():
         except OSError:
             pass
     except Exception as ex:
-        print(f"  DEGRADED: connectors summary failed ({str(ex)[:80]})")
+        print(f"  DEGRADED: connectors summary failed ({_short_err(ex, 80)})")
 
 
 def tailscale_status():
@@ -246,7 +278,7 @@ def tailscale_status():
               f"devices={m.get('device_count', '?')} | "
               f"control-plane={m.get('control_plane', '?')}{drift or ' | no drift'}")
     except Exception as e:
-        print(f"  freshness marker unreadable: {str(e)[:80]}")
+        print(f"  freshness marker unreadable: {_short_err(e, 80)}")
 
 
 def nvidia_status():
@@ -272,7 +304,7 @@ def nvidia_status():
         print(f"  candidate models configured: {data.get('candidate_models')}")
         print(f"  next: {data.get('next_action')}")
     except Exception as ex:
-        print(f"  stub: ERROR {str(ex)[:80]}")
+        print(f"  stub: ERROR {_short_err(ex, 80)}")
 
 
 def agent_stack_status():
@@ -299,7 +331,7 @@ def agent_stack_status():
                 extra = f" live={e['live'].get('status')}"
             print(f"  {comp:6s} imports={'ok' if imp_ok else 'BROKEN'} {key}{extra}")
     except Exception as ex:
-        print(f"  claude/codex/sdk script: ERROR {str(ex)[:80]}")
+        print(f"  claude/codex/sdk script: ERROR {_short_err(ex, 80)}")
     # 4-6: adk / langchain-langgraph / deepagents — import-only (fast, no traces)
     try:
         r = subprocess.run(
@@ -312,7 +344,7 @@ def agent_stack_status():
         if not ok and r.stderr:
             print(f"    {(r.stderr.strip().splitlines() or [''])[0][:100]}")
     except Exception as ex:
-        print(f"  framework imports: ERROR {str(ex)[:80]}")
+        print(f"  framework imports: ERROR {_short_err(ex, 80)}")
     # 7: langsmith covered by its own section above; 8-9: studio-side CLIs
     print("  agy (Antigravity CLI): studio-side, unverified — pending Mac Studio access")
     print("  openshell (NVIDIA OpenShell): studio-side, unverified — pending Mac Studio access")
@@ -352,7 +384,7 @@ def gstack_adopted_status():
         print(f"  {verdict}: prompts={n_prompts} "
               f"executables={len(have)}/2 guardian-selftest={selftest}")
     except Exception as ex:
-        print(f"  DEGRADED: gstack-adopted check failed ({str(ex)[:80]})")
+        print(f"  DEGRADED: gstack-adopted check failed ({_short_err(ex, 80)})")
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +452,7 @@ def _eval_timed(fn):
     try:
         ok, note, cost = fn()
     except Exception as e:  # noqa: BLE001 - a failing test reports, not raises
-        ok, note, cost = False, f"exception: {str(e)[:100]}", None
+        ok, note, cost = False, f"exception: {_short_err(e, 100)}", None
     return {"ok": bool(ok), "ms": round((time.time() - t0) * 1000, 1),
             "note": note or "", "cost": cost}
 
@@ -482,7 +514,7 @@ def _t_connector_inventory():
                         and not s.startswith("| Skill |"):
                     rows += 1
     except OSError as e:
-        return False, f"inventory unreadable: {str(e)[:60]}", None
+        return False, f"inventory unreadable: {_short_err(e, 60)}", None
     return rows >= 10, f"{rows} inventory rows parsed", None
 
 
@@ -492,7 +524,7 @@ def _t_vault_lookup():
         with open(VAULT_INDEX) as f:
             text = f.read()
     except OSError as e:
-        return False, f"vault index unreadable: {str(e)[:60]}", None
+        return False, f"vault index unreadable: {_short_err(e, 60)}", None
     ok = "status-dashboard" in text
     return ok, "index lookup hit: status-dashboard" if ok else "status-dashboard not found in index", None
 
@@ -509,7 +541,7 @@ def _t_cron_inventory():
                 if fn.endswith(".md"):
                     jobs.append(fn)
     except OSError as e:
-        return False, f"cron.d unreadable: {str(e)[:60]}", None
+        return False, f"cron.d unreadable: {_short_err(e, 60)}", None
     have_watchdog = any("local-infra-watchdog" in j for j in jobs)
     ok = len(jobs) >= 3 and have_watchdog
     return ok, f"{len(jobs)} active job defs; watchdog={'yes' if have_watchdog else 'no'}", None
@@ -574,7 +606,7 @@ def _restart_local(name):
         tail = (r.stdout.strip().splitlines() or [""])[-1][:120]
         return r.returncode == 0, tail
     except Exception as e:  # noqa: BLE001
-        return False, f"restart exception: {str(e)[:80]}"
+        return False, f"restart exception: {_short_err(e, 80)}"
 
 
 def cmd_heal():
