@@ -1,0 +1,25 @@
+# Auto-detect text files, normalize line endings to LF
+* text=auto
+
+# Generated directories are not real source
+/dist/** linguist-generated
+/build/** linguist-generated
+/coverage/** linguist-generated
+/vendor/** linguist-vendored
+/node_modules/** linguist-vendored
+/.venv/** linguist-vendored
+/venv/** linguist-vendored
+*.min.js linguist-generated
+*.min.css linguist-generated
+*.bundle.js linguist-generated
+*.bundle.css linguist-generated
+
+# Lockfiles: keep diffs readable
+package-lock.json diff=json
+yarn.lock diff=yarn
+pnpm-lock.yaml diff=yaml
+Gemfile.lock diff=ruby
+Pipfile.lock diff=json
+poetry.lock diff=yaml
+Cargo.lock diff=toml
+go.sum diff=go
