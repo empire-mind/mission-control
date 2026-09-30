@@ -1,0 +1,8 @@
+# Managed by IMPROVE-10000 wave 6 — weekly, conservative.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
