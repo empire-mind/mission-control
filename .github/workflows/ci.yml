@@ -1,15 +1,28 @@
 name: ci
+# v2 (2026-10-03): run-only. The org selected-actions allowlist rejects ALL
+# `uses:` steps at workflow-init (startup_failure, 0 jobs) — even actions/*.
+# So: no actions/checkout, no actions/setup-python. Clone via git CLI (public
+# repo, no token needed) and use the runner's preinstalled python3.
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      REPO: ${{ github.repository }}
+      SCAN_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+      EVENT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Clone event SHA (git CLI, no actions)
+        run: |
+          set -euo pipefail
+          git init -q repo && cd repo
+          git remote add origin "https://github.com/${REPO}.git"
+          git fetch -q --depth 1 origin "${SCAN_REF}"
+          git checkout -q --detach "${EVENT_SHA}"
       - name: compile check
-        run: python -m py_compile mc
+        run: cd repo && python3 -m py_compile mc
       - name: graceful-degrade smoke (no estate on a runner — must exit 0, never raise)
-        run: ./mc status
+        run: cd repo && ./mc status
