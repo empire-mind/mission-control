@@ -1,3 +1,5 @@
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 # mission-control — one command to see your whole agent fleet
 
 `mc status`. One pane. Stdlib only, zero dependencies. The `htop` of agent
@@ -24,7 +26,8 @@ a `good first issue`.
 The part worth stealing today is the *pattern*: one stdlib-only script,
 one `section()` helper, each check a small function that prints and never
 raises. Extracting that into a documented 10-line plugin contract is
-tracked as an issue — it's the highest-leverage contribution on the board.
+documented in [docs/PLUGIN-CONTRACT.md](docs/PLUGIN-CONTRACT.md) — it's
+the highest-leverage contribution on the board.
 
 ## Commands
 
@@ -51,6 +54,7 @@ tracked as an issue — it's the highest-leverage contribution on the board.
 ```bash
 ./mc eval        # self-test suite, must pass
 python3 -m py_compile mc
+python3 -m pytest tests/test_mc.py
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
